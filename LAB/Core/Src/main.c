@@ -42,7 +42,33 @@
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-
+int e=0;
+struct PortPin
+  {
+	  GPIO_TypeDef* PORT;
+	  uint16_t PIN;
+  };
+struct PortPin R[4]={
+	{GPIOA,GPIO_PIN_10},
+	{GPIOB,GPIO_PIN_3},
+	{GPIOB,GPIO_PIN_5},
+	{GPIOB,GPIO_PIN_4}
+};
+struct PortPin L[4]={
+	{GPIOA,GPIO_PIN_9},
+	{GPIOC,GPIO_PIN_7},
+	{GPIOB,GPIO_PIN_6},
+	{GPIOA,GPIO_PIN_7}
+};
+struct Pinstate
+{
+	int16_t Current;
+	int16_t Last;
+};
+uint16_t ButtonMatrix=0;
+uint16_t data[11];
+uint8_t step=0;
+char status=0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -50,7 +76,8 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
-
+void ReadMatrixButton_1Row();
+void SaveNumber(uint16_t input);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -95,6 +122,26 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  struct Pinstate event;
+	  static uint32_t timestamp=0;
+	  if(HAL_GetTick()>=timestamp){
+		  timestamp = HAL_GetTick()+100;
+		  ReadMatrixButton_1Row();
+		  event.Current=ButtonMatrix;
+		  if(event.Last == 0 && event.Current != 0){
+			  switch(event.Current)
+			  {
+			  	  case 4096:e=0;//Clear
+			  	  	  break;
+			  	  case 8192:e=0;//BS
+			  	  	  break;
+			  	  case -32768:e=0;//OK
+			  	  	  break;
+			  	  default :SaveNumber(event.Current);
+			  }
+		  }
+		  event.Last=event.Current;
+	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -253,7 +300,35 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void ReadMatrixButton_1Row() {
+    static uint8_t X = 0;
+    register int i;
+    for (i = 0; i < 4; i++) {
+        if (HAL_GPIO_ReadPin(L[i].PORT, L[i].PIN)) {
+        	ButtonMatrix &= ~(1 << (X * 4 + i));
+        }
+        else{
+            ButtonMatrix |= 1 << (X * 4 + i);
+        }
 
+    }
+    HAL_GPIO_WritePin(R[X].PORT, R[X].PIN, 1);
+    HAL_GPIO_WritePin(R[(X + 1) % 4].PORT, R[(X + 1) % 4].PIN, 0);
+    X++;
+    X %= 4;
+}
+void SaveNumber(uint16_t input){
+	if(input!=128&&input!=2048&&input!=16384&&step<11){
+		data[step]=input;
+		if(step==10){
+			status=1;
+		}
+		else{
+			status=0;
+		}
+		step+=1;
+	}
+}
 /* USER CODE END 4 */
 
 /**
