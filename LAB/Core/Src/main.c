@@ -66,7 +66,7 @@ struct Pinstate
 	int16_t Last;
 };
 uint16_t ButtonMatrix=0;
-uint16_t data[11];
+uint16_t data[11],dataTrue[11]={512,2,1024,2,8,32,8,8,8,64,16};
 uint8_t step=0;
 char status=0;
 /* USER CODE END PV */
@@ -78,6 +78,7 @@ static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 void ReadMatrixButton_1Row();
 void SaveNumber(uint16_t input);
+void CheckData(uint16_t input,uint8_t n);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -131,11 +132,17 @@ int main(void)
 		  if(event.Last == 0 && event.Current != 0){
 			  switch(event.Current)
 			  {
-			  	  case 4096:e=0;//Clear
+			  	  case 4096:e=0;//Clear LED_Off
+			  	  	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 0);
+			  	  	  step=0;
 			  	  	  break;
 			  	  case 8192:e=0;//BS
+			  	  	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 0);
+			  	  	  step-=1;
 			  	  	  break;
-			  	  case -32768:e=0;//OK
+			  	  case -32768:if(status==1){
+			  		  	  	  	  CheckData(event.Current, 11);//OK
+			  	  	  	  	  }
 			  	  	  break;
 			  	  default :SaveNumber(event.Current);
 			  }
@@ -327,6 +334,20 @@ void SaveNumber(uint16_t input){
 			status=0;
 		}
 		step+=1;
+	}
+}
+void CheckData(uint16_t input,uint8_t n){
+	register i;
+	status=3;
+	for(i=0;i<n;i++){
+		if(data[i]!=dataTrue[i]){
+			status=1;
+		}
+	}
+	if(status==3){
+		//led On
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 1);
+		e=100;
 	}
 }
 /* USER CODE END 4 */
